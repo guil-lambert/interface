@@ -1,18 +1,18 @@
 import Loader from 'components/Loader'
+import TopLevelModals from 'components/TopLevelModals'
 import ApeModeQueryParamReader from 'hooks/useApeModeQueryParamReader'
 import { lazy, Suspense } from 'react'
+import { useEffect } from 'react'
+import { useHistory } from 'react-router-dom'
 import { Redirect, Route, Switch } from 'react-router-dom'
 import styled from 'styled-components/macro'
 
 import GoogleAnalyticsReporter from '../components/analytics/GoogleAnalyticsReporter'
-import AddressClaimModal from '../components/claim/AddressClaimModal'
 import ErrorBoundary from '../components/ErrorBoundary'
 import Header from '../components/Header'
 import Polling from '../components/Header/Polling'
 import Popups from '../components/Popups'
 import Web3ReactManager from '../components/Web3ReactManager'
-import { useModalOpen, useToggleModal } from '../state/application/hooks'
-import { ApplicationModal } from '../state/application/reducer'
 import DarkModeQueryParamReader from '../theme/DarkModeQueryParamReader'
 import AddLiquidity from './AddLiquidity'
 import { RedirectDuplicateTokenIds } from './AddLiquidity/redirects'
@@ -65,13 +65,18 @@ const Marginer = styled.div`
   margin-top: 5rem;
 `
 
-function TopLevelModals() {
-  const open = useModalOpen(ApplicationModal.ADDRESS_CLAIM)
-  const toggle = useToggleModal(ApplicationModal.ADDRESS_CLAIM)
-  return <AddressClaimModal isOpen={open} onDismiss={toggle} />
-}
-
 export default function App() {
+  const history = useHistory()
+
+  useEffect(() => {
+    const unlisten = history.listen(() => {
+      window.scrollTo(0, 0)
+    })
+    return () => {
+      unlisten()
+    }
+  }, [history])
+
   return (
     <ErrorBoundary>
       <Route component={GoogleAnalyticsReporter} />

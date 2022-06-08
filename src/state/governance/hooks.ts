@@ -26,14 +26,15 @@ import { calculateGasMargin } from 'utils/calculateGasMargin'
 import { SupportedChainId } from '../../constants/chains'
 import {
   BRAVO_START_BLOCK,
+  MOONBEAN_START_BLOCK,
   ONE_BIP_START_BLOCK,
   POLYGON_START_BLOCK,
   UNISWAP_GRANTS_START_BLOCK,
 } from '../../constants/proposals'
 import { UNI } from '../../constants/tokens'
 import { useLogs } from '../logs/hooks'
-import { TransactionType } from '../transactions/actions'
 import { useTransactionAdder } from '../transactions/hooks'
+import { TransactionType } from '../transactions/types'
 import { VoteOption } from './types'
 
 function useGovernanceV0Contract(): Contract | null {
@@ -113,6 +114,7 @@ interface FormattedProposalLog {
 const FOUR_BYTES_DIR: { [sig: string]: string } = {
   '0x5ef2c7f0': 'setSubnodeRecord(bytes32,bytes32,address,address,uint64)',
   '0x10f13a8c': 'setText(bytes32,string,string)',
+  '0xb4720477': 'sendMessageToChild(address,bytes)',
 }
 
 /**
@@ -121,10 +123,20 @@ const FOUR_BYTES_DIR: { [sig: string]: string } = {
  */
 function useFormattedProposalCreatedLogs(
   contract: Contract | null,
-  indices: number[][]
+  indices: number[][],
+  fromBlock?: number,
+  toBlock?: number
 ): FormattedProposalLog[] | undefined {
   // create filters for ProposalCreated events
-  const filter = useMemo(() => contract?.filters?.ProposalCreated(), [contract])
+  const filter = useMemo(() => {
+    const filter = contract?.filters?.ProposalCreated()
+    if (!filter) return undefined
+    return {
+      ...filter,
+      fromBlock,
+      toBlock,
+    }
+  }, [contract, fromBlock, toBlock])
 
   const useLogsResult = useLogs(filter)
 
@@ -167,8 +179,12 @@ function useFormattedProposalCreatedLogs(
           description = JSON.parse(toUtf8String(error.error.value, onError)) || ''
         }
 
-        // Bravo and one bip proposals omit newlines
-        if (startBlock === BRAVO_START_BLOCK || startBlock === ONE_BIP_START_BLOCK) {
+        // some proposals omit newlines
+        if (
+          startBlock === BRAVO_START_BLOCK ||
+          startBlock === ONE_BIP_START_BLOCK ||
+          startBlock === MOONBEAN_START_BLOCK
+        ) {
           description = description.replace(/ {2}/g, '\n').replace(/\d\. /g, '\n$&')
         }
 
@@ -181,7 +197,7 @@ function useFormattedProposalCreatedLogs(
             let types: string
             if (signature === '') {
               const fourbyte = calldata.slice(0, 10)
-              const sig = FOUR_BYTES_DIR[fourbyte]
+              const sig = FOUR_BYTES_DIR[fourbyte] ?? 'UNKNOWN()'
               if (!sig) throw new Error('Missing four byte sig')
               ;[name, types] = sig.substring(0, sig.length - 1).split('(')
               calldata = `0x${calldata.slice(10)}`
@@ -238,9 +254,9 @@ export function useAllProposalData(): { data: ProposalData[]; loading: boolean }
   const proposalStatesV2 = useSingleContractMultipleData(gov2, 'state', gov2ProposalIndexes)
 
   // get metadata from past events
-  const formattedLogsV0 = useFormattedProposalCreatedLogs(gov0, gov0ProposalIndexes)
-  const formattedLogsV1 = useFormattedProposalCreatedLogs(gov1, gov1ProposalIndexes)
-  const formattedLogsV2 = useFormattedProposalCreatedLogs(gov2, gov2ProposalIndexes)
+  const formattedLogsV0 = useFormattedProposalCreatedLogs(gov0, gov0ProposalIndexes, 11042287, 12563484)
+  const formattedLogsV1 = useFormattedProposalCreatedLogs(gov1, gov1ProposalIndexes, 12686656, 13059343)
+  const formattedLogsV2 = useFormattedProposalCreatedLogs(gov2, gov2ProposalIndexes, 13538153)
 
   const uni = useMemo(() => (chainId ? UNI[chainId] : undefined), [chainId])
 
