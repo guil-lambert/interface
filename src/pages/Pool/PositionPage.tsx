@@ -3,6 +3,7 @@ import { TransactionResponse } from '@ethersproject/providers'
 import { Trans } from '@lingui/macro'
 import { Currency, CurrencyAmount, Fraction, Percent, Price, Token } from '@uniswap/sdk-core'
 import { NonfungiblePositionManager, Pool, Position } from '@uniswap/v3-sdk'
+import { sendEvent } from 'components/analytics'
 import Badge from 'components/Badge'
 import { ButtonConfirmed, ButtonGray, ButtonPrimary } from 'components/Button'
 import { DarkCard, LightCard } from 'components/Card'
@@ -25,7 +26,6 @@ import { useV3PositionFromTokenId } from 'hooks/useV3Positions'
 import { useSingleCallResult } from 'lib/hooks/multicall'
 import useNativeCurrency from 'lib/hooks/useNativeCurrency'
 import { useCallback, useMemo, useRef, useState } from 'react'
-import ReactGA from 'react-ga4'
 import { Link, RouteComponentProps } from 'react-router-dom'
 import { Bound } from 'state/mint/v3/actions'
 import { useIsTransactionPending, useTransactionAdder } from 'state/transactions/hooks'
@@ -318,7 +318,7 @@ export function PositionPage({
     params: { tokenId: tokenIdFromUrl },
   },
 }: RouteComponentProps<{ tokenId?: string }>) {
-  const { chainId, account, library } = useActiveWeb3React()
+  const { chainId, account, provider } = useActiveWeb3React()
   const theme = useTheme()
 
   const parsedTokenId = tokenIdFromUrl ? BigNumber.from(tokenIdFromUrl) : undefined
@@ -433,7 +433,7 @@ export function PositionPage({
       !positionManager ||
       !account ||
       !tokenId ||
-      !library
+      !provider
     )
       return
 
@@ -454,7 +454,7 @@ export function PositionPage({
       value,
     }
 
-    library
+    provider
       .getSigner()
       .estimateGas(txn)
       .then((estimate) => {
@@ -463,14 +463,14 @@ export function PositionPage({
           gasLimit: calculateGasMargin(estimate),
         }
 
-        return library
+        return provider
           .getSigner()
           .sendTransaction(newTxn)
           .then((response: TransactionResponse) => {
             setCollectMigrationHash(response.hash)
             setCollecting(false)
 
-            ReactGA.event({
+            sendEvent({
               category: 'Liquidity',
               action: 'CollectV3',
               label: [currency0ForFeeCollectionPurposes.symbol, currency1ForFeeCollectionPurposes.symbol].join('/'),
@@ -497,7 +497,7 @@ export function PositionPage({
     account,
     tokenId,
     addTransaction,
-    library,
+    provider,
   ])
 
   const owner = useSingleCallResult(!!tokenId ? positionManager : null, 'ownerOf', [tokenId]).result?.[0]
